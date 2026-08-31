@@ -3,6 +3,9 @@
 
 <head>
   <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>MedFlow Kids - Login</title>
 
   <style>
@@ -27,7 +30,6 @@
           rgba(100, 210, 180, 0.30)
         ),
 
-        
         url(pis.jpg);
 
       background-size: cover;
@@ -362,8 +364,6 @@
     }
 
 
-    /* RODAPÉ */
-
     .rodape {
 
       text-align: center;
@@ -499,6 +499,7 @@
 
       <input
         id="usuario"
+        type="text"
         placeholder="Usuário"
         autocomplete="username"
       >
@@ -522,7 +523,11 @@
     </div>
 
 
-    <button class="btn" onclick="login()">
+    <button
+      class="btn"
+      type="button"
+      onclick="login()"
+    >
       🚀 Entrar
     </button>
 
@@ -537,53 +542,157 @@
 
   <script>
 
-    function login() {
+    async function login() {
 
-      fetch("http://localhost:3000/login", {
+      const usuario =
+        document.getElementById("usuario").value.trim();
 
-        method: "POST",
+      const senha =
+        document.getElementById("senha").value.trim();
 
-        headers: {
-          "Content-Type": "application/json"
-        },
 
-        body: JSON.stringify({
+      if (!usuario || !senha) {
 
-          usuario:
-            document.getElementById("usuario").value,
+        alert("Digite o usuário e a senha.");
 
-          senha:
-            document.getElementById("senha").value
+        return;
+      }
 
-        })
 
-      })
+      const botao =
+        document.querySelector(".btn");
 
-      .then(r => r.json())
 
-      .then(data => {
+      botao.disabled = true;
+
+      botao.innerHTML = "⏳ Entrando...";
+
+
+      try {
+
+        /*
+         * IMPORTANTE:
+         *
+         * NÃO usar:
+         *
+         * http://localhost:3000/login
+         *
+         * No Render usamos somente:
+         *
+         * /login
+         */
+
+        const resposta = await fetch("/login", {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+
+            usuario: usuario,
+
+            senha: senha
+
+          })
+
+        });
+
+
+        const data =
+          await resposta.json();
+
+
+        if (!resposta.ok) {
+
+          alert(
+            data.erro ||
+            "Usuário ou senha inválidos."
+          );
+
+          botao.disabled = false;
+
+          botao.innerHTML = "🚀 Entrar";
+
+          return;
+        }
+
+
+        /*
+         * Salva os dados do usuário.
+         */
+
+        localStorage.setItem(
+          "usuarioLogado",
+          JSON.stringify(data)
+        );
+
+        localStorage.setItem(
+          "usuario",
+          data.usuario
+        );
+
+        localStorage.setItem(
+          "tipoUsuario",
+          data.tipo
+        );
+
+
+        /*
+         * Redirecionamento.
+         */
 
         if (data.tipo === "triagem") {
-          location.href = "triagem.html";
+
+          window.location.href =
+            "triagem.html";
+
         }
 
-        if (data.tipo === "medico") {
-          location.href = "medico.html";
+        else if (data.tipo === "medico") {
+
+          window.location.href =
+            "medico.html";
+
         }
 
-        if (data.tipo === "atendimento") {
-          location.href = "atendimento.html";
+        else if (data.tipo === "atendimento") {
+
+          window.location.href =
+            "atendimento.html";
+
         }
 
-      })
+        else {
 
-      .catch(error => {
+          alert(
+            "Tipo de usuário não reconhecido."
+          );
 
-        console.error(error);
+          botao.disabled = false;
 
-        alert("Erro ao conectar com o servidor.");
+          botao.innerHTML = "🚀 Entrar";
+        }
 
-      });
+
+      } catch (error) {
+
+        console.error(
+          "Erro completo:",
+          error
+        );
+
+        alert(
+          "Erro ao conectar com o servidor."
+        );
+
+        botao.disabled = false;
+
+        botao.innerHTML = "🚀 Entrar";
+
+      }
 
     }
 
