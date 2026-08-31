@@ -1,4 +1,4 @@
-const express = require("express");
+onst express = require("express");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
@@ -13,7 +13,8 @@ app.use(express.json());
 app.use(cors());
 
 // Servir o frontend
-app.use(express.static(path.join(__dirname, "../frontend")));
+const FRONTEND_DIR = path.join(__dirname, "../frontend");
+app.use(express.static(FRONTEND_DIR));
 
 // Banco de dados
 const DB_FILE = path.join(__dirname, "db.json");
@@ -22,41 +23,74 @@ const DB_FILE = path.join(__dirname, "db.json");
 // BANCO DE DADOS
 // =========================
 
+function createEmptyDB() {
+  return {
+    usuarios: [],
+    pacientes: [],
+    triagens: [],
+    consultas: [],
+    tv_chamada: null,
+    tv_historico: []
+  };
+}
+
 function readDB() {
   if (!fs.existsSync(DB_FILE)) {
-    return {
-      usuarios: [],
-      pacientes: [],
-      triagens: [],
-      consultas: [],
-      tv_chamada: null,
-      tv_historico: []
-    };
+    const db = createEmptyDB();
+
+    try {
+      fs.writeFileSync(
+        DB_FILE,
+        JSON.stringify(db, null, 2),
+        "utf8"
+      );
+    } catch (error) {
+      console.error("Erro ao criar banco de dados:", error);
+    }
+
+    return db;
   }
 
   try {
-    const db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+    const content = fs.readFileSync(DB_FILE, "utf8");
 
-    // Garante que os campos existam
-    if (!db.usuarios) db.usuarios = [];
-    if (!db.pacientes) db.pacientes = [];
-    if (!db.triagens) db.triagens = [];
-    if (!db.consultas) db.consultas = [];
-    if (!db.tv_chamada) db.tv_chamada = null;
-    if (!db.tv_historico) db.tv_historico = [];
+    if (!content.trim()) {
+      return createEmptyDB();
+    }
+
+    const db = JSON.parse(content);
+
+    // Garante que todos os campos existam
+    if (!Array.isArray(db.usuarios)) {
+      db.usuarios = [];
+    }
+
+    if (!Array.isArray(db.pacientes)) {
+      db.pacientes = [];
+    }
+
+    if (!Array.isArray(db.triagens)) {
+      db.triagens = [];
+    }
+
+    if (!Array.isArray(db.consultas)) {
+      db.consultas = [];
+    }
+
+    if (!("tv_chamada" in db)) {
+      db.tv_chamada = null;
+    }
+
+    if (!Array.isArray(db.tv_historico)) {
+      db.tv_historico = [];
+    }
 
     return db;
+
   } catch (error) {
     console.error("Erro ao ler o banco de dados:", error);
 
-    return {
-      usuarios: [],
-      pacientes: [],
-      triagens: [],
-      consultas: [],
-      tv_chamada: null,
-      tv_historico: []
-    };
+    return createEmptyDB();
   }
 }
 
@@ -67,6 +101,9 @@ function writeDB(data) {
       JSON.stringify(data, null, 2),
       "utf8"
     );
+
+    return true;
+
   } catch (error) {
     console.error("Erro ao salvar o banco de dados:", error);
     throw error;
@@ -92,10 +129,19 @@ app.post("/login", (req, res) => {
   try {
     const db = readDB();
 
+    const usuario = req.body.usuario;
+    const senha = req.body.senha;
+
+    if (!usuario || !senha) {
+      return res.status(400).json({
+        erro: "Usuário e senha são obrigatórios"
+      });
+    }
+
     const user = db.usuarios.find(
       (u) =>
-        u.usuario === req.body.usuario &&
-        u.senha === req.body.senha
+        u.usuario === usuario &&
+        u.senha === senha
     );
 
     if (!user) {
@@ -105,6 +151,7 @@ app.post("/login", (req, res) => {
     }
 
     res.json(user);
+
   } catch (error) {
     console.error("Erro no login:", error);
 
@@ -123,12 +170,23 @@ app.post("/atendimento", (req, res) => {
   try {
     const db = readDB();
 
+    if (!req.body.nome) {
+      return res.status(400).json({
+        erro: "Nome do paciente é obrigatório"
+      });
+    }
+
     const paciente = {
       id: Date.now(),
+
       nome: req.body.nome,
-      cpf: req.body.cpf,
-      tipo: req.body.tipo,
+
+      cpf: req.body.cpf || "",
+
+      tipo: req.body.tipo || "",
+
       status: "triagem",
+
       createdAt: new Date().toISOString()
     };
 
@@ -137,6 +195,7 @@ app.post("/atendimento", (req, res) => {
     writeDB(db);
 
     res.json(paciente);
+
   } catch (error) {
     console.error("Erro no atendimento:", error);
 
@@ -155,6 +214,7 @@ app.get("/pacientes", (req, res) => {
     const db = readDB();
 
     res.json(db.pacientes);
+
   } catch (error) {
     console.error("Erro ao listar pacientes:", error);
 
@@ -176,23 +236,38 @@ app.post("/triagem", (req, res) => {
 
     const temperatura = Number(req.body.temperatura);
 
-    if (temperatura >= 39) {
-      risco = "vermelho";
-    } else if (temperatura >= 38) {
-      risco = "amarelo";
-    } else if (!risco) {
+    // Classificação automática pelo valor da temperatura
+    if (!isNaN(temperatura)) {
+      if (temperatura >= 39) {
+        risco = "vermelho";
+      } else if (temperatura >= 38) {
+        risco = "amarelo";
+      } else if (!risco) {
+        risco = "verde";
+      }
+    }
+
+    if (!risco) {
       risco = "verde";
     }
 
     const triagem = {
       id: Date.now(),
-      nome: req.body.nome,
-      sintoma: req.body.sintoma,
-      temperatura: req.body.temperatura,
-      alergia: req.body.alergia,
-      observacao: req.body.observacao,
-      risco,
+
+      nome: req.body.nome || "",
+
+      sintoma: req.body.sintoma || "",
+
+      temperatura: req.body.temperatura || "",
+
+      alergia: req.body.alergia || "",
+
+      observacao: req.body.observacao || "",
+
+      risco: risco,
+
       status: "aguardando_medico",
+
       createdAt: new Date().toISOString()
     };
 
@@ -201,6 +276,7 @@ app.post("/triagem", (req, res) => {
     writeDB(db);
 
     res.json(triagem);
+
   } catch (error) {
     console.error("Erro na triagem:", error);
 
@@ -219,6 +295,7 @@ app.get("/triagens", (req, res) => {
     const db = readDB();
 
     res.json(db.triagens);
+
   } catch (error) {
     console.error("Erro ao listar triagens:", error);
 
@@ -239,16 +316,18 @@ app.post("/tv/chamar", (req, res) => {
     const chamada = {
       id: Date.now().toString(),
 
-      localTipo: req.body.localTipo,
+      localTipo: req.body.localTipo || "",
 
-      localNumero: req.body.localNumero,
+      localNumero: req.body.localNumero || "",
 
-      paciente: req.body.paciente,
+      paciente: req.body.paciente || "",
 
       hora: new Date().toLocaleTimeString("pt-BR", {
         hour: "2-digit",
         minute: "2-digit"
-      })
+      }),
+
+      createdAt: new Date().toISOString()
     };
 
     db.tv_chamada = chamada;
@@ -263,6 +342,7 @@ app.post("/tv/chamar", (req, res) => {
     writeDB(db);
 
     res.json(chamada);
+
   } catch (error) {
     console.error("Erro ao chamar paciente:", error);
 
@@ -284,6 +364,7 @@ app.get("/tv/chamada", (req, res) => {
       chamada: db.tv_chamada,
       historico: db.tv_historico
     });
+
   } catch (error) {
     console.error("Erro ao buscar chamada da TV:", error);
 
@@ -323,13 +404,13 @@ app.post("/consulta", (req, res) => {
     const consulta = {
       id: Date.now(),
 
-      paciente: req.body.paciente,
+      paciente: req.body.paciente || "",
 
-      diagnostico: req.body.diagnostico,
+      diagnostico: req.body.diagnostico || "",
 
-      medicacao: req.body.medicacao,
+      medicacao: req.body.medicacao || "",
 
-      obs: req.body.obs,
+      obs: req.body.obs || "",
 
       createdAt: new Date().toISOString()
     };
@@ -339,6 +420,7 @@ app.post("/consulta", (req, res) => {
     writeDB(db);
 
     res.json(consulta);
+
   } catch (error) {
     console.error("Erro ao registrar consulta:", error);
 
@@ -357,6 +439,7 @@ app.get("/medicacoes", (req, res) => {
     const db = readDB();
 
     res.json(db.consultas);
+
   } catch (error) {
     console.error("Erro ao listar consultas:", error);
 
@@ -371,17 +454,32 @@ app.get("/medicacoes", (req, res) => {
 // =========================
 
 app.get("/", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "../frontend/index.html"),
-    (error) => {
-      if (error) {
-        res.json({
-          status: "ok",
-          mensagem: "Hospital Pro API funcionando"
-        });
-      }
-    }
+  const indexPath = path.join(
+    FRONTEND_DIR,
+    "index.html"
   );
+
+  res.sendFile(indexPath, (error) => {
+    if (error) {
+      console.error("Erro ao abrir index.html:", error);
+
+      res.status(500).json({
+        status: "erro",
+        mensagem: "Frontend não encontrado"
+      });
+    }
+  });
+});
+
+// =========================
+// TRATAMENTO DE ROTAS NÃO ENCONTRADAS
+// =========================
+
+app.use((req, res, next) => {
+  res.status(404).json({
+    erro: "Rota não encontrada",
+    rota: req.originalUrl
+  });
 });
 
 // =========================
@@ -396,11 +494,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process. env.PORT
-       || 3000;
-app.listen(PORT, () => {
-  console.log(`Porta ${PORT} `);
-});
+// =========================
+// SERVIDOR
+// =========================
+
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🏥 Hospital Pro rodando na porta ${PORT}`);
