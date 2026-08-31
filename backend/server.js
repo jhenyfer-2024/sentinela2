@@ -256,3 +256,152 @@ app.post("/tv/chamar", (req, res) => {
     db.tv_historico.unshift(chamada);
 
     // Mantém somente as últimas 5 chamadas
+    if (db.tv_historico.length > 5) {
+      db.tv_historico = db.tv_historico.slice(0, 5);
+    }
+
+    writeDB(db);
+
+    res.json(chamada);
+  } catch (error) {
+    console.error("Erro ao chamar paciente:", error);
+
+    res.status(500).json({
+      erro: "Erro ao realizar chamada"
+    });
+  }
+});
+
+// =========================
+// TV / CONSULTAR CHAMADA
+// =========================
+
+app.get("/tv/chamada", (req, res) => {
+  try {
+    const db = readDB();
+
+    res.json({
+      chamada: db.tv_chamada,
+      historico: db.tv_historico
+    });
+  } catch (error) {
+    console.error("Erro ao buscar chamada da TV:", error);
+
+    res.status(500).json({
+      erro: "Erro ao buscar chamada"
+    });
+  }
+});
+
+// =========================
+// LISTA DE MEDICAÇÕES
+// =========================
+
+app.get("/lista-medicacoes", (req, res) => {
+  res.json([
+    "Dipirona",
+    "Paracetamol",
+    "Ibuprofeno",
+    "Amoxicilina",
+    "Azitromicina",
+    "Loratadina",
+    "Omeprazol",
+    "Buscopan",
+    "Dramin",
+    "Soro fisiológico"
+  ]);
+});
+
+// =========================
+// CONSULTA MÉDICA
+// =========================
+
+app.post("/consulta", (req, res) => {
+  try {
+    const db = readDB();
+
+    const consulta = {
+      id: Date.now(),
+
+      paciente: req.body.paciente,
+
+      diagnostico: req.body.diagnostico,
+
+      medicacao: req.body.medicacao,
+
+      obs: req.body.obs,
+
+      createdAt: new Date().toISOString()
+    };
+
+    db.consultas.push(consulta);
+
+    writeDB(db);
+
+    res.json(consulta);
+  } catch (error) {
+    console.error("Erro ao registrar consulta:", error);
+
+    res.status(500).json({
+      erro: "Erro ao registrar consulta"
+    });
+  }
+});
+
+// =========================
+// LISTAR CONSULTAS / MEDICAÇÕES
+// =========================
+
+app.get("/medicacoes", (req, res) => {
+  try {
+    const db = readDB();
+
+    res.json(db.consultas);
+  } catch (error) {
+    console.error("Erro ao listar consultas:", error);
+
+    res.status(500).json({
+      erro: "Erro ao buscar consultas"
+    });
+  }
+});
+
+// =========================
+// ROTA PRINCIPAL
+// =========================
+
+app.get("/", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../frontend/index.html"),
+    (error) => {
+      if (error) {
+        res.json({
+          status: "ok",
+          mensagem: "Hospital Pro API funcionando"
+        });
+      }
+    }
+  );
+});
+
+// =========================
+// TRATAMENTO DE ERROS
+// =========================
+
+app.use((err, req, res, next) => {
+  console.error("Erro não tratado:", err);
+
+  res.status(500).json({
+    erro: "Erro interno do servidor"
+  });
+});
+
+const PORT = process. env.PORT
+       || 3000;
+app.listen(PORT, () => {
+  console.log(`Porta ${PORT} `);
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🏥 Hospital Pro rodando na porta ${PORT}`);
+});   quando vou ´pro render nao sta abrindo ja mudei o porta 3000 mais nao vai fala que ta dando erro quando quero ir pra triagem medido etc
