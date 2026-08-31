@@ -22,7 +22,7 @@ function readDB() {
     };
   }
 
-  return JSON.parse(fs.readFileSync(DB_FILE));
+  return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
 }
 
 function writeDB(data) {
@@ -33,9 +33,10 @@ function writeDB(data) {
 app.post("/login", (req, res) => {
   const db = readDB();
 
-  const user = db.usuarios.find(u =>
-    u.usuario === req.body.usuario &&
-    u.senha === req.body.senha
+  const user = db.usuarios.find(
+    (u) =>
+      u.usuario === req.body.usuario &&
+      u.senha === req.body.senha
   );
 
   if (!user) {
@@ -101,12 +102,11 @@ app.post("/triagem", (req, res) => {
 // LISTAR TRIAGENS
 app.get("/triagens", (req, res) => {
   const db = readDB();
+
   res.json(db.triagens);
 });
 
-// IMPLEMENTADO: rota com lista fixa de medicações
-// A lógica da TV foi implementada nas páginas de triagem, médico e na tela da TV,
-// com o backend responsável por receber e retornar as chamadas em tempo real.
+// LISTA DE MEDICAÇÕES
 app.get("/lista-medicacoes", (req, res) => {
   res.json([
     "Dipirona",
@@ -141,11 +141,16 @@ app.post("/consulta", (req, res) => {
   res.json(consulta);
 });
 
-// MEDICAÇÕES
+// MEDICAÇÕES / CONSULTAS
 app.get("/medicacoes", (req, res) => {
   const db = readDB();
+
   res.json(db.consultas);
 });
 
-// START
-module.exports = app;
+// START DO SERVIDOR
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
